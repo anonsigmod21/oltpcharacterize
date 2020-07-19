@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
+# python 3.6
 
 # # General Boxplots
 # Total price breakdown by status
@@ -10,21 +11,21 @@
 # pip3 install numpy
 # pip3 install sklearn
 
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-# select s2, dT from tmp_deltaT t, tmp_status_time s where t.id=s.id;
+# Export duration and status from database to deltaT.csv file
 df = pd.read_csv("deltaT.csv",dtype={0:str, 1:int} ,sep="|",header =None)
 df = df.rename(columns={0: "status",1: "dt"})
 
-df.shape
-
+# Group carts by status and convert duration from seconds to minutes
 pur = df[df['status']=='PURCHASED']['dt']/60
 can = df[df['status']=='CANCELED']['dt']/60
 exp = df[df['status']=='EXPIRED']['dt']/60
 
-# Calculating median of duration of each status
+# Calculate median of duration of each status
 print(np.median(pur))
 print(np.median(can))
 print(np.median(exp))
@@ -48,16 +49,16 @@ q3e = np.quantile(exp,.75)
 iqre = q3e - q1e
 print(np.mean(exp * ((exp > q1e-1.5*iqre) & (exp < q3e+1.5*iqre))))
 
-
-
 dtdata = [pur,can,exp]
+
 # Plot the boxplots of duration for each status
+# Set Plot size and title
 fig, axs = plt.subplots(figsize=(16,13))
 fig.suptitle('Cart checkout duration broken down by status', fontsize=35, fontweight='bold')
-
+# Set line styles
 boxprops = dict(linestyle='-', linewidth=3, color='black')
 medianprops = dict(linestyle='-', linewidth=2.5, color='red')
-
+# Boxplot without showing outliers
 bp = axs.boxplot(dtdata, showfliers = False, whiskerprops = dict(linestyle='-', linewidth=3),medianprops=medianprops, boxprops=boxprops)
 axs.set_xticklabels(['PURCHASED','CANCELED','EXPIRED'])
 axs.set_ylabel('Duration (min)', fontsize = 35.0)
@@ -67,8 +68,7 @@ for cap in bp['caps']:
     cap.set(linewidth = 3)
 fig.savefig('cart_time_box.png')
 
-# Get data for price information
-# select s2, dT from tmp_deltaT t, tmp_status_time s where t.id=s.id;
+# Export duration and status from database to total.csv file
 df2 = pd.read_csv("total.csv",dtype={0:str, 1:float} ,sep="|",header =None)
 df2 = df2.rename(columns={0: "status",1: "total"})
 
@@ -80,12 +80,13 @@ exp2 = df2[df2['status']=='EXPIRED']['total']/1.00 #actual value redacted to avo
 pdata = [pur2, can2, exp2]
 
 # Boxplots of Real price broken down by status
+# Set Plot size and title
 fig, axs = plt.subplots(figsize=(16,13))
 fig.suptitle('Cart total price broken down by status', fontsize=35, fontweight='bold')
-
+# Set line styles
 boxprops = dict(linestyle='-', linewidth=3, color='black')
 medianprops = dict(linestyle='-', linewidth=2.5, color='red')
-# axs.set_title('Breakdown by Status', fontsize = 35.0)
+# Boxplot
 bp = axs.boxplot(pdata, showfliers = False, whiskerprops = dict(linestyle='-', linewidth=3),medianprops=medianprops, boxprops=boxprops)
 axs.set_xticklabels(['PURCHASED','CANCELED','EXPIRED'])
 axs.set_ylabel('Total Price ($USD) ', fontsize = 35.0)
@@ -96,7 +97,7 @@ for cap in bp['caps']:
 
 fig.savefig('cart_price1_box.png')
 
-# select s2, dT from tmp_deltaT t, tmp_status_time s where t.id=s.id;
+# Export skuprice, total, shipping price and status from database to skuprice.csv file
 df3 = pd.read_csv("skuprice.csv",dtype={0:float, 1:float, 2:float, 3:str} ,sep="|",header =None)
 df3 = df3.rename(columns={0: "skuPrice",1: "total",2: "freight",3: "status"})
 
@@ -105,9 +106,9 @@ df3['total'] = df3['total'].fillna(0)
 hasReal = df3['total'] > 0
 df3['price'] = df3['skuPrice']*(1-hasReal) + df3['total']*hasReal
 
-pur3 = df3[df3['status']=='PURCHASED']['price']/5.36
-can3 = df3[df3['status']=='CANCELED']['price']/5.36
-exp3 = df3[df3['status']=='EXPIRED']['price']/5.36
+pur3 = df3[df3['status']=='PURCHASED']['price']/1.00 #actual value redacted to avoid compromising anonymity
+can3 = df3[df3['status']=='CANCELED']['price']/1.00 #actual value redacted to avoid compromising anonymity
+exp3 = df3[df3['status']=='EXPIRED']['price']/1.00 #actual value redacted to avoid compromising anonymity
 
 skudata = [pur3, can3, exp3]
 
@@ -116,21 +117,25 @@ print(np.median(pur3))
 print(np.median(can3))
 print(np.median(exp3))
 
+# Percentage of carts with shipping price information out of the total number of carts
 df3[df3['freight']>0].shape[0]/df3.shape[0]
 df3.shape
 
+# Filter data to get carts which have shipping price information
 withfreight = df3[(df3['freight']>0)]
-pur4 = withfreight[withfreight['status']=='PURCHASED']['freight']/5.36
-can4 = withfreight[withfreight['status']=='CANCELED']['freight']/5.36
-exp4 = withfreight[withfreight['status']=='EXPIRED']['freight']/5.36
+pur4 = withfreight[withfreight['status']=='PURCHASED']['freight']/1.00 #actual value redacted to avoid compromising anonymity
+can4 = withfreight[withfreight['status']=='CANCELED']['freight']/1.00 #actual value redacted to avoid compromising anonymity
+exp4 = withfreight[withfreight['status']=='EXPIRED']['freight']/1.00 #actual value redacted to avoid compromising anonymity
 freight = [pur4, can4, exp4]
 
 # Boxplots of freight price broken down by status
+# Set Plot size and title
 fig, axs = plt.subplots(figsize=(16,13))
 fig.suptitle('Cart price broken down by status', fontsize=35, fontweight='bold')
-
+# Set line styles
 boxprops = dict(linestyle='-', linewidth=3, color='black')
 medianprops = dict(linestyle='-', linewidth=2.5, color='red')
+# Boxplot
 bp = axs.boxplot(skudata, showfliers = False, whiskerprops = dict(linestyle='-', linewidth=3),medianprops=medianprops, boxprops=boxprops)
 axs.set_xticklabels(['PURCHASED','CANCELED','EXPIRED'])
 axs.set_ylabel('Price ($USD)', fontsize = 35.0)
@@ -141,11 +146,13 @@ for cap in bp['caps']:
 fig.savefig('cart_price2_box.png')
 
 # Boxplots of price broken down by status, replacing na real price with skuPrice
+# Set Plot size and title
 fig, axs = plt.subplots(figsize=(16,13))
 fig.suptitle('Cart shipping price broken down by status', fontsize=35, fontweight='bold')
-
+# Set line styles
 boxprops = dict(linestyle='-', linewidth=3, color='black')
 medianprops = dict(linestyle='-', linewidth=2.5, color='red')
+# Boxplot
 bp = axs.boxplot(freight, showfliers = False, whiskerprops = dict(linestyle='-', linewidth=3),medianprops=medianprops, boxprops=boxprops)
 axs.set_xticklabels(['PURCHASED','CANCELED','EXPIRED'])
 axs.set_ylabel('Shipping Price ($USD)', fontsize = 35.0)

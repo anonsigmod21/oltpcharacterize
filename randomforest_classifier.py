@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 # coding: utf-8
+# python 3.6
 
-# # Random forest regressor predicting cart status
-# X-Variable: price(replace real with skuPrice),sku, dept, hod, dow, ispopsku, ispopdept, dt30
+# Random forest regressor predicting cart status
+# Variables: price(replace real with skuPrice), sku, dept, hod, dow, ispopsku, ispopdept, duration longer than 30 sec
 
 # Packages used: pandas, numpy, sklearn
 # pip3 install pandas
@@ -18,27 +19,26 @@ from sklearn import preprocessing
 from sklearn.ensemble import RandomForestRegressor
 
 
-# Read in variables
-# select s2, sku, department, hod, dow, dT, sku_price, total, freightPrice from tmp_aug_with_skuPrice;
+# Export classification features and status from database to appAug.csv file
 df = pd.read_csv("appAug.csv",dtype={0:str, 1:int, 2:int, 3:int, 4:int, 5:int, 6:float, 7:float, 8:float} ,sep="|",header =None)
 df = df.rename(columns={0: "status",1: "sku", 2: "dept", 3:"hod",4:"dow",5:"dT", 6:"skuPrice",7:"total", 8:"freight"})
 df.shape
 
-# replace na real price with skuPrice
+# replace na with skuPrice info
 df['total'] = df['total'].fillna(0)
 hasReal = df['total'] > 0
 df['price'] = df['skuPrice']*(1-hasReal) + df['total']*hasReal
 
-# Add in other variables - popsku, popdept, which are popular sku ids and department ids across all carts in the database
-# select sku from checkout_stock_info_copy group by sku order by count(*) desc limit 10;
+# Add: popsku, popdept, which are popular sku ids and department ids across all carts in the database
+# Export skuid ordered by the count of carts descending from database to popSku.csv file
 popsku = pd.read_csv("popSku.csv",dtype={0:int} ,sep="|",header =None)
 popsku = popsku.rename(columns={0: "sku"})
 
-# select department from checkout_stock_info_copy c, sku_info s
-# where c.sku=s.sku group by department order by count(*) desc limit 10;
+# Export deptid ordered by the count of carts descending from database to popdept.csv file
 popdept = pd.read_csv("popdept.csv",dtype={0:int} ,sep="|",header =None)
 popdept = popdept.rename(columns={0: "dept"})
 
+# Create features ispopsku and ispopdept
 df['ispopsku'] = df['sku'] == popsku['sku'][0]
 df['ispopdept'] = df['dept'] == popdept['dept'][0]
 
@@ -46,11 +46,12 @@ for i in range(9):
     df['ispopsku'] = (df['ispopsku'] == 1) | (df['sku'] == popsku['sku'][i+1])
     df['ispopdept'] = (df['ispopdept'] == 1) | (df['dept'] == popdept['dept'][i+1])
 
+# Convert to category type to improve memory usage
 df["status"] = df["status"].astype('category')
 df["sku"] = df["sku"].astype('category')
 df["dept"] = df["dept"].astype('category')
 
-# preprocessing - label encode sku, dept
+# preprocessing - label encode skuid, deptid
 le = preprocessing.LabelEncoder()
 
 df['sku'] = le.fit_transform(df['sku'])
@@ -59,11 +60,11 @@ df['dept'] = le.fit_transform(df['dept'])
 # Add in dt30 as variable for duration longer than 30 seconds
 df['dt30'] = df['dT'] > 30
 
-# splitting training testing set - 80:20 ratio
+# Splitting training testing set - 80:20 ratio
 train = df.sample(frac=0.8,random_state=200) #random state is a seed value
 test = df.drop(train.index)
 
-# onehot encoding - return number of columns & encoded status
+# Onehot encoding - return number of columns & encoded status
 from sklearn.preprocessing import OneHotEncoder
 
 def oneHot(y):
@@ -72,7 +73,7 @@ def oneHot(y):
     n = y_encode.shape[0]
     return n, y_encode
 
-# onehot encode status - y for training and testing set
+# Onehot encode status - target variable for training and testing set
 y_train = train.iloc[:,0:1]
 y_train = oneHot(y_train)[1]
 
@@ -82,8 +83,8 @@ y_test = oneHot(y_test)[1]
 print(y_train.shape)
 print(y_test.shape)
 
-# generate prediction
-# input: regressor and X variables of test set
+# Generate prediction
+# Input: regressor and X variables of test set
 def pred(regressor, X_test):
     y_pred_can = regressor[0].predict(X_test)
     y_pred_exp = regressor[1].predict(X_test)
@@ -91,8 +92,6 @@ def pred(regressor, X_test):
 
     y_pred = [y_pred_can, y_pred_exp, y_pred_pur]
     return y_pred
-
-
 
 # plot precision and recall for each status
 # plot roc curve for each status with auc
@@ -126,9 +125,6 @@ def plotRoc(y_pred, y_test, name):
     fig.savefig(name + 'roc_curve.png')
     return fpr_can, tpr_can, fpr_exp, tpr_exp, fpr_pur, tpr_pur
 
-# In[16]:
-
-
 # plot feature importance of the regressors
 # input: X variable names, feature importance, name of plot
 # output: prints the feature importance plots and save to name.png
@@ -152,15 +148,13 @@ def featImp(XVar, importance, name):
 
         fig.savefig(name+'featImp'+'_'+status[i]+'.png')
 
-
 # prepare X variables, drop unuseful features
 X_train = train.drop(columns=['status', 'total', 'freight', 'skuPrice', 'dT'])
 X_test = test.drop(columns=['status', 'total', 'freight', 'skuPrice', 'dT'])
 
-
 # initialize variables
 threshold = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-trees = [1]
+trees = [50]
 XVar = ['sku', 'dept', 'hod', 'dow',  'price', 'pop'+'\n'+'sku', 'pop'+'\n'+'dept', 'Longer'+'\n'+'30Sec']
 
 # training random forest regressor on 3 statuses
